@@ -1,16 +1,14 @@
 import sys
 sys.path.append('/home/rmqlife/work/catkin_ur5/src/teleop/src')
-
+sys.path.append('/home/rmqlife/work/collision_check/ompl/py-bindings')
 import pybullet as p
 import pybullet_data
 import pb_ompl2
-from move_ur5 import *
+# from move_ur5 import *
 import threading
 '''
 export PYTHONPATH=$PYTHONPATH:/home/rmqlife/work/collision_check/ompl/py-bindings 
 '''
-
-
 
 
 class UR5DualPlanner():
@@ -113,17 +111,18 @@ class UR5DualPlanner():
     
 
 
-    def run(self, start1, goal1,start2,goal2):
+    def run(self, start1, goal1, start2, goal2):
         '''
         execute the planner and execute the planned path
         '''
         self.robot1.set_state(start1)
         self.robot2.set_state(start2)
-        res, path1,path2 = self.pb_ompl_interface.plan(goal1,goal2)
+        res, path1, path2 = self.pb_ompl_interface.plan(goal1,goal2)
+        print(res, path1, path2)
         # execute the planned path
-        while 1:
-            self.pb_ompl_interface.execute(path1,path2)
-        return path1,path2
+        # while 1:
+        self.pb_ompl_interface.execute(path1, path2)
+        return path1, path2
         
     
 if __name__== '__main__':
@@ -145,7 +144,7 @@ if __name__== '__main__':
     robot1 = env.robot1
     robot2 = env.robot2
 
-    start1 = ur5_move1.get_current_joint()
+    start1 = ur5_move1.get_joints()
     env.robot1.set_state(start1)
     start2 = ur5_move2.get_current_joint()
     env.robot2.set_state(start2)

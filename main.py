@@ -1,127 +1,80 @@
 import sys
-sys.path.append('/home/rmqlife/work/catkin_ur5/src/teleop/src')
-sys.path.append('/home/rmqlife/work/collision_check/ompl/py-bindings')
+sys.path.append('/home/rmqlife/work/ur_slam/ros_utils')
+from myRobotNs import MyRobotNs
 
 import numpy as np
 from ur5_dual import UR5DualPlanner
-from move_ur5 import myur5
-from scipy.spatial.transform import Rotation
-from spatialmath import SE3
+import rospy
 import threading
+import json
 
-def pose2matrix(pose):
-    position  = pose[0:3]
-    orientation = pose[3:]
-    r = Rotation.from_quat(orientation)
-    matrix = r.as_matrix()
-    out = np.zeros((4,4))
-    out[0:3,0:3] = matrix
-    out[0:3,3] = position
-    return out
 
-def matrix2pose(matrix):
-    position = matrix[0:3, 3]
-    r = Rotation.from_matrix(matrix[0:3,0:3])
-    orientation = r.as_quat()
-    pose = np.concatenate((position, orientation))
-    return pose
+
+def move_path(robot, path):
+    current_joint = robot.get_joints()
+    print("start joint", current_joint)
+
+    if (max(abs(path[0]-current_joint))>0.3):
+        print("start joint is not correct")
+    else:
+        for joint_path in path:
+            diff  = [abs(a-b) for a,b in zip(joint_path,current_joint)]
+            joints_movement = np.max(diff)
+            robot.move_joints(joint_path,duration =0.5* joints_movement, wait=False)
+            current_joint = joint_path
+    
+
 
 class AvoidObstacles():
-    def __init__(self,arm1_poses) -> None:
+    def __init__(self, obj_path, pose_path='pose.json') -> None:
         '''
         args:
-            env: UR5DualEnv class
-            arm1_poses: list of floats, [x,y,z,orientation]
-            arm2_poses: list of floats, [x,y,z,orientation]
+            json_file_path: path to the JSON file containing arm poses
         '''
+        self.arm1 = MyRobotNs("robot1")
+        self.arm2 = MyRobotNs("robot2")  
+        
 
-        arm_transformation = [   [0.996     ,0.0683  , -0.05744  , 0.02818],   
-                                [-0.057   , -0.00844,  -0.9983  , -0.3216 ], 
-                                [-0.06867  , 0.9976  , -0.004513, -0.3276], 
-                                [0        , 0       ,  0       ,  1   ]]
-        
-        arm_transformation= np.array(arm_transformation)# constant transformation between two arms
-        arm2_matrix =   np.array(pose2matrix(arm1_poses)) @ arm_transformation
-        arm2_poses = matrix2pose(arm2_matrix)
-        print(arm1_poses[0:3])
-        print(arm2_poses[0:3])
-        self.env = UR5DualPlanner(arm1_poses[0:3],arm2_poses[0:3],arm1_poses[3:],arm2_poses[3:])
-        
-        self.robot1 = self.env.robot1
-        self.id1 = self.robot1.id
-        self.robot2 = self.env.robot2
-        self.id2 = self.robot2.id
-        self.match_state()
-    
-        
-    def add_obstacles(self,obstacles_path):
-        '''
-        add obstacles to the environment
-        
-        '''
-        self.env.add_mesh(obstacles_path,[0,0,0],[0,0,0,1])
+        # Load poses from JSON file
+        with open(pose_path, 'r') as file:
+            data = json.load(file)
+            arm1_pose = data['arm1_pose']
+            arm2_pose = data['arm2_pose']
+
+        # Initialize the planner with the loaded poses
+        self.env = UR5DualPlanner(arm1_pose[0:3], arm2_pose[0:3], arm1_pose[3:], arm2_pose[3:])
+        self.env.add_mesh(obj_path,[0,0,0],[0,0,0,1])
 
 
-    def path_planning(self,goal1,goal2,type = 'joint'):
-        '''
-        path planning for two robots
-        
-        args:
-            start1: list of floats, start configuration of robot1
-            start2: list of floats, start configuration of robot2
-            goal1: list of floats, goal configuration of robot1
-            goal2: list of floats, goal configuration of robot2
-        
-        return:
-            path1: list of list of floats, path found by the planner for robot1
-            path2: list of list of floats, path found by the planner for robot2
-        '''
-        
-        self.robot1.set_state(self.start1)
-        self.robot2.set_state(self.start2)
 
-        if type == 'joint':
-            goal1_joint = goal1
-            goal2_joint = goal2
-        elif type == 'point':
-            goal1_joint = self.env.p.calculateInverseKinematics(self.id1, 6,goal1)
-            goal2_joint = self.env.p.calculateInverseKinematics(self.id2, 6,goal2)
-        else:
-            raise ValueError("type should be 'joint' or 'point'")
-        
-        self.path1,self.path2 = self.env.run(self.start1,goal1_joint,self.start2,goal2_joint)
+    def path_planning(self, goal1, goal2, type):
+        start1 = self.arm1.get_joints()
+        start2 = self.arm2.get_joints()
 
+        if type == 'point':
+            goal1 = self.env.p.calculateInverseKinematics(self.env.robot1.id, 6, goal1)
+            goal2 = self.env.p.calculateInverseKinematics(self.env.robot2.id, 6, goal2)
 
-    def match_state(self):
-        '''
-        match the real state of the two robots
-        and get the current state of the two robots
-        '''
-        self.ur5_move1 = myur5("robot1")
-        self.ur5_move2 = myur5("robot2")            
-        self.start1 = self.ur5_move1.get_current_joint()
-        self.start2 = self.ur5_move2.get_current_joint()
+        path1, path2 = self.env.run(start1, goal1, start2, goal2)
+        return path1, path2
 
-    def execute(self):
-        thread1 = threading.Thread(target=self.ur5_move1.move_, args=(self.path1,))
-        thread2 = threading.Thread(target=self.ur5_move2.move_, args=(self.path2,))
+    def execute(self, path1, path2):
+        thread1 = threading.Thread(target=move_path, args=(self.arm1, path1))
+        thread2 = threading.Thread(target=move_path, args=(self.arm2, path2))
         thread1.start()
         thread2.start()
     
-
+    
 
 if __name__ == "__main__":
+    rospy.init_node('dual_arm_bullet')
+    planner = AvoidObstacles(obj_path="plydoc/mesh22.obj", pose_path='./pose.json')
+    # j1, j2 = planner.arm1.get_joints(),planner.arm2.get_joints()
 
-    arm_1_position =  [-0.6226 , -0.03173 , 0.1716 ]
-    arm_1_orientation = [ 0.92061594 , 0.00544071 ,-0.00534512,  0.39039482]
-    arm1_poses = arm_1_position+arm_1_orientation
-
-    avoid_obstacles = AvoidObstacles(arm1_poses)
-    avoid_obstacles.add_obstacles("plydoc/mesh22.obj")
-    # avoid_obstacles.path_planning([0.1,0.1,0.2],[-0.1,-0.1,-0.3],'point')
+    path1, path2 = planner.path_planning(planner.arm1.get_joints(),planner.arm2.get_joints(),'joint')
 
     input("press enter to continue")
-    avoid_obstacles.execute()
+    planner.execute(path1, path2)
     
 
 

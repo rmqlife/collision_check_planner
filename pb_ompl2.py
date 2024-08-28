@@ -78,6 +78,7 @@ class PbOMPLRobot():
 
         print("cur_state:",cur_state)
         return cur_state
+    
     def set_state(self, state):
         '''
         Set robot state.
@@ -340,7 +341,7 @@ class PbOMPL2():
         return self.plan_start_goal(start1,goal1,start2,goal2,allowed_time)
 
 
-    def execute(self, path1,path2):
+    def execute(self, path1, path2):
         '''
         Execute a planned plan. Will visualize in pybullet.
         Args:
@@ -355,13 +356,14 @@ class PbOMPL2():
                 robot._set_joint_positions(robot.joint_idx, joint_positions)
                 p.stepSimulation()
                 time.sleep(1./240.)
+
         for num in range(len(path1)):
 
             # if num%3 == 0:
             #     input("Press Enter to continues...")
             # Create threads for each robot simulation
-            thread1 = threading.Thread(target=control_robot,args=(self.robot1,path1[num]))
-            thread2 = threading.Thread(target=control_robot,args=(self.robot2,path2[num]))
+            thread1 = threading.Thread(target=control_robot,args=(self.robot1, path1[num]))
+            thread2 = threading.Thread(target=control_robot,args=(self.robot2, path2[num]))
             # Start both threads
             thread1.start()
             thread2.start()
