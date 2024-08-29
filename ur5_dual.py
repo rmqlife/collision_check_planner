@@ -12,14 +12,10 @@ export PYTHONPATH=$PYTHONPATH:/home/rmqlife/work/collision_check/ompl/py-binding
 
 
 class UR5DualPlanner():
-    def __init__(self,arm1_position,arm2_position,arm_1_orientation,arm_2_orientation):
+    def __init__(self, arm1_pose, arm2_pose):
         '''
         args:
-            arm1_position: list, [x,y,z]
-            arm2_position: list, [x,y,z]
-            arm_1_orientation: [x,y,z,w])
-            arm_2_orientation: [x,y,z,w])
-        
+            arm1_pose, arm2_pose: list, [x,y,z],[x,y,z,w]
         '''
 
         self.obstacles = [] 
@@ -46,8 +42,8 @@ class UR5DualPlanner():
         self.robot2 = robot2
 
         # reset robot position and orientation
-        p.resetBasePositionAndOrientation(robot_1, arm1_position, arm_1_orientation)
-        p.resetBasePositionAndOrientation(robot_2, arm2_position, arm_2_orientation)
+        p.resetBasePositionAndOrientation(robot_1, arm1_pose[:3], arm1_pose[3:])
+        p.resetBasePositionAndOrientation(robot_2, arm2_pose[:3], arm2_pose[3:])
 
 
         # setup pb_ompl

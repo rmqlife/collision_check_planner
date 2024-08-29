@@ -16,7 +16,7 @@ except ImportError:
     from ompl import base as ob
     from ompl import geometric as og
 import pybullet as p
-import utils
+import pb_utils
 import time
 from itertools import product
 import copy
@@ -198,12 +198,12 @@ class PbOMPL2():
         self.robot1.set_state(state1)
 
         for link1, link2 in self.check_link_pairs1:
-            if utils.pairwise_link_collision(self.robot1.id, link1, self.robot1.id, link2):
+            if pb_utils.pairwise_link_collision(self.robot1.id, link1, self.robot1.id, link2):
                 return False
 
         # Check collision with obstacles for robot1
         for body1, body2 in self.check_body_pairs1:
-            if utils.pairwise_collision(body1, body2):
+            if pb_utils.pairwise_collision(body1, body2):
                 return False
 
         # Check collision for robot2
@@ -211,26 +211,26 @@ class PbOMPL2():
 
         # Check self-collision for robot2
         for link1, link2 in self.check_link_pairs2:
-            if utils.pairwise_link_collision(self.robot2.id, link1, self.robot2.id, link2):
+            if pb_utils.pairwise_link_collision(self.robot2.id, link1, self.robot2.id, link2):
                 return False
 
         # Check collision with obstacles for robot2
         for body1, body2 in self.check_body_pairs2:
-            if utils.pairwise_collision(body1, body2):
+            if pb_utils.pairwise_collision(body1, body2):
                 return False
 
         # Check collision between robot1 and robot2
-        if utils.body_collision(self.robot1.id, self.robot2.id):
+        if pb_utils.body_collision(self.robot1.id, self.robot2.id):
             return False
 
         return True
 
     def setup_collision_detection(self, self_collisions=True, allow_collision_links=[]):
-        self.check_link_pairs1 = utils.get_self_link_pairs(self.robot1.id, self.robot1.joint_idx)
-        self.check_link_pairs2 = utils.get_self_link_pairs(self.robot2.id, self.robot2.joint_idx)
+        self.check_link_pairs1 = pb_utils.get_self_link_pairs(self.robot1.id, self.robot1.joint_idx)
+        self.check_link_pairs2 = pb_utils.get_self_link_pairs(self.robot2.id, self.robot2.joint_idx)
         
-        moving_links1 = frozenset([item for item in utils.get_moving_links(self.robot1.id, self.robot1.joint_idx)])
-        moving_links2 = frozenset([item for item in utils.get_moving_links(self.robot2.id, self.robot2.joint_idx)])
+        moving_links1 = frozenset([item for item in pb_utils.get_moving_links(self.robot1.id, self.robot1.joint_idx)])
+        moving_links2 = frozenset([item for item in pb_utils.get_moving_links(self.robot2.id, self.robot2.joint_idx)])
         
         moving_bodies1 = [(self.robot1.id, moving_links1)]
         moving_bodies2 = [(self.robot2.id, moving_links2)]
