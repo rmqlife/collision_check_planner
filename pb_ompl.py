@@ -5,7 +5,7 @@ from ompl import util as ou
 from ompl import base as ob
 from ompl import geometric as og
 import pybullet as p
-import utils
+import pb_utils
 import time
 from itertools import product
 import copy
@@ -154,13 +154,13 @@ class PbOMPL():
         # check self-collision
         self.robot.set_state(self.state_to_list(state))
         for link1, link2 in self.check_link_pairs:
-            if utils.pairwise_link_collision(self.robot_id, link1, self.robot_id, link2):
+            if pb_utils.pairwise_link_collision(self.robot_id, link1, self.robot_id, link2):
                 # print(get_body_name(body), get_link_name(body, link1), get_link_name(body, link2))
                 return False
 
         # check collision against environment
         for body1, body2 in self.check_body_pairs:
-            if utils.pairwise_collision(body1, body2):
+            if pb_utils.pairwise_collision(body1, body2):
                 # print('body collision', body1, body2)
                 # print(get_body_name(body1), get_body_name(body2))
                 return False
@@ -169,9 +169,9 @@ class PbOMPL():
         return True
 
     def setup_collision_detection(self, robot, obstacles, self_collisions = True, allow_collision_links = []):
-        self.check_link_pairs = utils.get_self_link_pairs(robot.id, robot.joint_idx) if self_collisions else []
+        self.check_link_pairs = pb_utils.get_self_link_pairs(robot.id, robot.joint_idx) if self_collisions else []
         moving_links = frozenset(
-            [item for item in utils.get_moving_links(robot.id, robot.joint_idx) if not item in allow_collision_links])
+            [item for item in pb_utils.get_moving_links(robot.id, robot.joint_idx) if not item in allow_collision_links])
         moving_bodies = [(robot.id, moving_links)]
         self.check_body_pairs = list(product(moving_bodies, obstacles))
 
