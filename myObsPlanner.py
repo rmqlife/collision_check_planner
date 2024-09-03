@@ -30,11 +30,7 @@ def move_path(robot, path):
             robot.move_joints(joint_path, duration=3 * joints_movement, wait=False)
             current_joint = joint_path
 
-def execute(self, path1, path2):
-    thread1 = threading.Thread(target=move_path, args=(self.arm1, path1))
-    thread2 = threading.Thread(target=move_path, args=(self.arm2, path2))
-    thread1.start()
-    thread2.start()
+
 
 def base_pose_ik(pose):
         # reset myIK's position and orientation
@@ -45,7 +41,7 @@ def base_pose_ik(pose):
 
 
 class MyObsPlanner():
-    def __init__(self, obj_path, pose_path='pose.json'):
+    def __init__(self, obj_path, pose_path='pose.json', planner_name='BITstar'):
         '''
         args:
             obj_path: str, path to the mesh file
@@ -80,7 +76,7 @@ class MyObsPlanner():
         
         # Setup pb_ompl
         self.pb_ompl_interface = pb_ompl2.PbOMPL2(self.robot[0], self.robot[1], self.obstacles)
-        self.pb_ompl_interface.set_planner("RRTstar")
+        self.pb_ompl_interface.set_planner(planner_name)
         
         # Add obstacles
         self.add_mesh(obj_path, [0, 0, 0], [0, 0, 0, 1])
@@ -110,15 +106,19 @@ class MyObsPlanner():
         for i, joint in enumerate(joint_list):
             if joint is not None:
                 self.robot[i].set_state(joint)
-        pass
-
-    def set_poses():
+        
+    # SE3 
+    def set_poses(self, pose_list, q_list, is_se3=True):
+        joint_list = []
+        ik_list = self.robot_ik
+        for i, pose in enumerate(pose_list):
+            if is_se3:
+                j = ik_list[i].ik_se3(pose, q=q_list[i])
+            else:
+                j = ik_list[i].ik(pose, q=q_list[i])
+            joint_list.append(j)
+        self.set_joints(joint_list)
         # set the env's poses by ik
-        pass
-    
-    def sync_robot():
-        # get robot's joints state
-        pass
 
     def clear_obstacles(self):
         for obstacle in self.obstacles:
@@ -157,28 +157,26 @@ class MyObsPlanner():
         self.obstacles.append(box_id)
         self.update_obstacles()
         return box_id
+    
+    def execute(self, path1, path2):
+        thread1 = threading.Thread(target=move_path, args=(self.arm1, path1))
+        thread2 = threading.Thread(target=move_path, args=(self.arm2, path2))
+        thread1.start()
+        thread2.start()
 
-    def plan(self, start1, goal1, start2, goal2):
+    def plan(self, joint_list):
         '''
         Execute the planner and execute the planned path
         '''
-        self.robot1.set_state(start1)
-        self.robot2.set_state(start2)
-        res, path1, path2 = self.pb_ompl_interface.plan(goal1, goal2)
-        self.pb_ompl_interface.execute(path1, path2)
-        return path1, path2
+        res, path1, path2 = self.pb_ompl_interface.plan(joint_list[0], joint_list[1])#(goal0,goal1)
 
-    
+        print('goal0', joint_list[0])
+        print('goal1', joint_list[1])
+        
 
 
-    def path_planning(self, joints1, joints2):
-        path1, path2 = self.run(self.arm1.get_joints(), joints1, self.arm2.get_joints(), joints2)
-        return path1, path2
-
-
-
-
-
+        # self.pb_ompl_interface.execute(path1, path2)
+        return res, [path1, path2]
 
 
 if __name__ == "__main__":
@@ -190,26 +188,13 @@ if __name__ == "__main__":
     
     print("environment joints state", planner.get_joints())
     print("environment pose")
-    for se3_pose in planner.get_poses():
+    poses = planner.get_poses()
+    for se3_pose in poses:
         se3_pose.printline()
-
-    # sync with real robot
-    path_list = list()
-    for i in [0,1]:
-        init_pose = SE3_to_pose(planner.get_poses()[i])
-        target_pose = init_pose.copy()
-        target_pose[2] -= 0.3
-        poses = circle_pose(init_pose, target_pose[:3], radius=0.1, num_points=50)
-        path = planner.robot_ik[i].plan_trajectory(poses, planner.get_joints()[0])
-        path_list.append(path)
-
-    while 1:
-        for j0, j1 in zip(path_list[0], path_list[1]):
-            planner.set_joints([j0, j1])
-            import time
-            time.sleep(1./60.)
-
-
+        
+    # print(poses[1])
+    planner.set_poses(poses, q_list=planner.get_joints(), is_se3=True)
+    
     input("break")
 
     # path1, path2 = planner.path_planning(joints1, planner.arm2.get_joints())

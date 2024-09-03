@@ -25,7 +25,7 @@ import numpy as np
 
 
 INTERPOLATE_NUM = 500
-DEFAULT_PLANNING_TIME = 10
+DEFAULT_PLANNING_TIME = 2
 
 class PbOMPLRobot():
     '''
@@ -128,115 +128,102 @@ class PbStateSpace(ob.RealVectorStateSpace):
         '''
         self.state_sampler = state_sampler
 
+
 class PbOMPL2():
-    def __init__(self, robot1, robot2, obstacles=None):
-        '''
-        Initialize PbOMPL2 with two robots and optional obstacles
-        Args:
-            robot1: PbOMPLRobot, first robot
-            robot2: PbOMPLRobot, second robot
-            obstacles: list, list of obstacle IDs
-        '''
+    def __init__(self, robot1, robot2, obstacles=None,fixed_obstacles=None):
         self.robot1 = robot1
         self.robot2 = robot2
         self.obstacles = obstacles if obstacles is not None else []
+        self.fixed_obstacles = fixed_obstacles if fixed_obstacles is not None else []
 
         # Setup state spaces and planners for both robots
         self.setup_spaces_and_planners()
 
     def setup_spaces_and_planners(self):
-        '''
-        Setup a single RealVectorStateSpace for both robots
-        '''
-        # 合并两个 RealVectorStateSpace 为一个大的 RealVectorStateSpace
-        total_dim = self.robot1.num_dim + self.robot2.num_dim
-        self.combined_space = ob.RealVectorStateSpace(total_dim)
+        # Initialize combined state space for both robots
+        self.space1 = PbStateSpace(self.robot1.num_dim)
+        self.space2 = PbStateSpace(self.robot2.num_dim)
         
-        # 设置联合边界
-        bounds = ob.RealVectorBounds(total_dim)
-        joint_bounds1 = self.robot1.get_joint_bounds()
-        joint_bounds2 = self.robot2.get_joint_bounds()
-        
-        for i, bound in enumerate(joint_bounds1):
-            bounds.setLow(i, bound[0])
-            bounds.setHigh(i, bound[1])
-        
-        for i, bound in enumerate(joint_bounds2):
-            bounds.setLow(self.robot1.num_dim + i, bound[0])
-            bounds.setHigh(self.robot1.num_dim + i, bound[1])
-        
-        self.combined_space.setBounds(bounds)
-        
-        # 使用单一空间设置 SimpleSetup
-        self.ss = og.SimpleSetup(self.combined_space)
-        self.ss.setStateValidityChecker(ob.StateValidityCheckerFn(self.is_state_valid_combined))
-        self.si = self.ss.getSpaceInformation()
-        self.si.setStateValidityCheckingResolution(0.01)
+        self.combined_space = ob.CompoundStateSpace()
 
+        self.combined_space.addSubspace(self.space1, 1.0)
+        self.combined_space.addSubspace(self.space2, 1.0)
+
+        # Setup bounds for both robots
+        bounds1 = ob.RealVectorBounds(self.robot1.num_dim)
+        joint_bounds1 = self.robot1.get_joint_bounds()
+        for i, bound in enumerate(joint_bounds1):
+            bounds1.setLow(i, bound[0])
+            bounds1.setHigh(i, bound[1])
+        self.space1.setBounds(bounds1)
+
+        bounds2 = ob.RealVectorBounds(self.robot2.num_dim)
+        joint_bounds2 = self.robot2.get_joint_bounds()
+        for i, bound in enumerate(joint_bounds2):
+            bounds2.setLow(i, bound[0])
+            bounds2.setHigh(i, bound[1])
+        self.space2.setBounds(bounds2)
+
+        # Setup planner for the combined space
+        self.ss = og.SimpleSetup(self.combined_space)
+        self.ss.setStateValidityChecker(ob.StateValidityCheckerFn(self.is_state_valid))
+
+        # # Set up collision detection for both robots and obstacles
+        # self.setup_collision_detection()
+
+        # Set default planner (e.g., RRT)
+        # self.set_planner("RRT")
 
     def set_obstacles(self, obstacles):
-        '''
-        Set overall obstacles for the environment
-        Args:
-            obstacles: list of obstacle IDs
-        '''
-        self.obstacles = obstacles
-        # Update collision detection
+        self.obstacles = obstacles+self.fixed_obstacles
+
+        # update collision detection
         self.setup_collision_detection()
 
     def add_obstacles(self, obstacle_id):
-        '''
-        Add a single obstacle to the environment
-        '''
         self.obstacles.append(obstacle_id)
 
     def remove_obstacles(self, obstacle_id):
-        '''
-        Remove a single obstacle from the environment
-        '''
         self.obstacles.remove(obstacle_id)
 
-    def is_state_valid_combined(self, state):
-        '''
-        Check if the combined state is valid:
-            1. Extract individual robot states
-            2. Check collisions
-        '''
-        # 分离机器人状态
-        state1 = [state[i] for i in range(self.robot1.num_dim)]
-        state2 = [state[i + self.robot1.num_dim] for i in range(self.robot2.num_dim)]
-        
-        # 检查机器人1的碰撞
+    def is_state_valid(self, state):
+
+        state1 = [state[0][i] for i in range(self.robot1.num_dim)]
+        state2 = [state[1][i] for i in range(self.robot1.num_dim)]
+
+        # print("here",state1,state2)
+        # Check self-collision for robot1
         self.robot1.set_state(state1)
+
         for link1, link2 in self.check_link_pairs1:
             if pb_utils.pairwise_link_collision(self.robot1.id, link1, self.robot1.id, link2):
                 return False
+
+        # Check collision with obstacles for robot1
         for body1, body2 in self.check_body_pairs1:
             if pb_utils.pairwise_collision(body1, body2):
                 return False
-        
-        # 检查机器人2的碰撞
+
+        # Check collision for robot2
         self.robot2.set_state(state2)
+
+        # Check self-collision for robot2
         for link1, link2 in self.check_link_pairs2:
             if pb_utils.pairwise_link_collision(self.robot2.id, link1, self.robot2.id, link2):
                 return False
+
+        # Check collision with obstacles for robot2
         for body1, body2 in self.check_body_pairs2:
             if pb_utils.pairwise_collision(body1, body2):
                 return False
-        
-        # 检查机器人1与机器人2之间的碰撞
+
+        # Check collision between robot1 and robot2
         if pb_utils.body_collision(self.robot1.id, self.robot2.id):
             return False
-        
+
         return True
 
     def setup_collision_detection(self, self_collisions=True, allow_collision_links=[]):
-        '''
-        Setup collision detection for the environment
-            1. Check self-collision for both robots
-            2. Check collision with obstacles for both robots
-            3. Check collision between robot1 and robot2
-        '''
         self.check_link_pairs1 = pb_utils.get_self_link_pairs(self.robot1.id, self.robot1.joint_idx)
         self.check_link_pairs2 = pb_utils.get_self_link_pairs(self.robot2.id, self.robot2.joint_idx)
         
@@ -251,11 +238,6 @@ class PbOMPL2():
         self.check_body_pairs3 = list(product(moving_bodies1, moving_bodies2))
 
     def set_planner(self, planner_name):
-        '''
-        Set planner for the combined space
-        Args:
-            planner_name: string, name of the planner to use
-        '''
         if planner_name == "PRM":
             self.planner = og.PRM(self.ss.getSpaceInformation())
         elif planner_name == "RRT":
@@ -280,55 +262,58 @@ class PbOMPL2():
             self.planner = og.BiEST(self.ss.getSpaceInformation()) 
         elif planner_name == "InformedRRTstar":
             self.planner = og.InformedRRTstar(self.ss.getSpaceInformation())
-        elif planner_name == "SORRTstar":
-            self.planner = og.SORRTstar(self.ss.getSpaceInformation())
-        elif planner_name == "PRMstar":
-            self.planner = og.PRMstar(self.ss.getSpaceInformation())
+        
 
         else:
             print("{} not recognized, please add it first".format(planner_name))
             return
-      
 
         self.ss.setPlanner(self.planner)
 
     def plan_start_goal(self, start1, goal1, start2, goal2, allowed_time=DEFAULT_PLANNING_TIME):
+        '''
+        Plan a path to goal from the given robot start state
+        '''
         print("start_planning")
+        # print(self.planner.params())
 
         orig_robot_state1 = self.robot1.get_cur_state()
         orig_robot_state2 = self.robot2.get_cur_state()
 
-        # 设置联合的起始和目标状态
-        s = ob.State(self.combined_space)
-        g = ob.State(self.combined_space)
+        # Set the start and goal states for the combined space
+        s = ob.CompoundState(self.combined_space)
+        g = ob.CompoundState(self.combined_space)
 
-        # 设置机器人1的起始和目标状态
+        # Set start and goal states for robot1
+        # keep base fixed
+
         for i in range(len(start1)):
-            s[i] = start1[i]
-            g[i] = goal1[i]
+            s()[0][i] = start1[i]
+            g()[0][i] = goal1[i]
+            s()[1][i] = start2[i]
+            g()[1][i] = goal2[i]
         
-        # 设置机器人2的起始和目标状态
-        for i in range(len(start2)):
-            s[self.robot1.num_dim + i] = start2[i]
-            g[self.robot1.num_dim + i] = goal2[i]
-        
-        self.ss.setStartAndGoalStates(s, g)
+        start =ob.State(s)
+        goal = ob.State(g)
 
-        # 尝试在允许的时间内解决问题
+        self.ss.setStartAndGoalStates(start, goal)
+
+        # Attempt to solve the problem within allowed planning time
         solved = self.ss.solve(allowed_time)
+        self.ss.simplifySolution(0)
+
         res = False
         sol_path_list1 = []
         sol_path_list2 = []
         if solved:
             print("Found solution: interpolating into {} segments".format(INTERPOLATE_NUM))
-            self.ss.simplifySolution()
             sol_path_geometric = self.ss.getSolutionPath()
             sol_path_geometric.interpolate(INTERPOLATE_NUM)
             sol_path_states = sol_path_geometric.getStates()
-            sol_path_list = [self.state_to_list(state) for state in sol_path_states]
-            # 分离机器人1和机器人2的路径
-            sol_path_list1 = [state[:self.robot1.num_dim] for state in sol_path_list]
-            sol_path_list2 = [state[self.robot1.num_dim:] for state in sol_path_list]
+            # print("oh............",sol_path_states[0][0],sol_path_states[1])
+            sol_path_list1 = [self.state_to_list(state[0]) for state in sol_path_states]
+            sol_path_list2 = [self.state_to_list(state[1]) for state in sol_path_states]
+            
             if sol_path_list1[-1] == goal1 and sol_path_list2[-1] == goal2:
                 res = True
             else:
@@ -337,31 +322,68 @@ class PbOMPL2():
         else:
             print("No solution found")
 
-        # 重置机器人状态
+        # Reset robot states
         self.robot1.set_state(orig_robot_state1)
         self.robot2.set_state(orig_robot_state2)
-        return res, sol_path_list1, sol_path_list2
+        return res, sol_path_list1,sol_path_list2
+    
+
+    def update_angle(self, reference, angle):
+        '''
+        Ensure angle is within the range of (reference - 180°, reference + 180°)
+        Units: radians
+        
+        Parameters:
+        - reference: reference angle in radians
+        - angle: angle to be constrained in radians
+        
+        Returns:
+        - Adjusted angle in radians
+        '''
+        
+        # Define the min and max boundaries
+        ref_min = reference - np.pi
+        ref_max = reference + np.pi
+
+        # Ensure the boundaries are within the range [-2*pi, 2*pi]
+        ref_min = max(-2*np.pi, ref_min)
+        ref_max = min(2*np.pi, ref_max)
+
+        # Check if angle is within the valid range
+        if ref_min <= angle <= ref_max:
+            return angle
+        else:
+            # Adjust angle to be within the range
+            # Wrap the angle to be within [-pi, pi] range relative to the reference
+            range_width = ref_max - ref_min
+            while angle < ref_min:
+                angle += 2 * np.pi
+            while angle > ref_max:
+                angle -= 2 * np.pi
+            return angle
 
     
-    def plan(self, goal1, goal2, allowed_time=DEFAULT_PLANNING_TIME):
+    def plan(self, goal1, goal2, allowed_time = DEFAULT_PLANNING_TIME):
         '''
-        Plan a path to goal from current robot states
-        Args:
-            goal1, goal2: goal states for robot1 and robot2
-            allowed_time: time allowed for planning
+        plan a path to gaol from current robot state
         '''
         start1 = self.robot1.get_cur_state()
         start2 = self.robot2.get_cur_state()
-    
-        return self.plan_start_goal(start1, goal1, start2, goal2, allowed_time)
+
+
+        return self.plan_start_goal(start1,goal1,start2,goal2,allowed_time)
+
 
     def execute(self, path1, path2):
         '''
         Execute a planned plan. Will visualize in pybullet.
         Args:
-            path1, path2: lists of states for robot1 and robot2
+            path: list[state], a list of state
         '''
-        def control_robot(robot, joint_positions):
+        # print("final path1:",path1[-1])
+        # print("final path2:",path2[-1])
+
+        def control_robot(robot,joint_positions):
             for _ in range(1):
                 # Move joints to desired positions
                 robot._set_joint_positions(robot.joint_idx, joint_positions)
@@ -369,18 +391,19 @@ class PbOMPL2():
                 time.sleep(1./240.)
 
         for num in range(len(path1)):
+
+            # if num%3 == 0:
+            #     input("Press Enter to continues...")
             # Create threads for each robot simulation
-            thread1 = threading.Thread(target=control_robot, args=(self.robot1, path1[num]))
-            thread1 = threading.Thread(target=control_robot,args=(self.robot1,path1[num]))
-            thread2 = threading.Thread(target=control_robot,args=(self.robot2,path2[num]))
+            thread1 = threading.Thread(target=control_robot,args=(self.robot1, path1[num]))
+            thread2 = threading.Thread(target=control_robot,args=(self.robot2, path2[num]))
             # Start both threads
             thread1.start()
             thread2.start()
+            # Wait for threads to complete (optional)
             thread1.join()
             thread2.join()
             
 
     def state_to_list(self, state):
-        return [state[i] for i in range(self.robot1.num_dim+self.robot2.num_dim)]
-    
-    
+        return [state[i] for i in range(self.robot1.num_dim)]
