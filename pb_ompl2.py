@@ -24,7 +24,7 @@ import numpy as np
 
 
 
-INTERPOLATE_NUM = 500
+INTERPOLATE_NUM = 20
 DEFAULT_PLANNING_TIME = 10
 
 class PbOMPLRobot():

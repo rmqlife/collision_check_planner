@@ -16,21 +16,7 @@ import rospy
 import threading
 import json
 from spatialmath import SE3
-
-def move_path(robot, path):
-    current_joint = robot.get_joints()
-    print("start joint", current_joint)
-
-    if max(abs(path[0] - current_joint)) > 0.3:
-        print("start joint is not correct")
-    else:
-        for joint_path in path:
-            diff = [abs(a - b) for a, b in zip(joint_path, current_joint)]
-            joints_movement = np.max(diff)
-            robot.move_joints(joint_path, duration=3 * joints_movement, wait=False)
-            current_joint = joint_path
-
-
+import time
 
 def base_pose_ik(pose):
         # reset myIK's position and orientation
@@ -158,24 +144,16 @@ class MyObsPlanner():
         self.update_obstacles()
         return box_id
     
-    def execute(self, path1, path2):
-        thread1 = threading.Thread(target=move_path, args=(self.arm1, path1))
-        thread2 = threading.Thread(target=move_path, args=(self.arm2, path2))
-        thread1.start()
-        thread2.start()
+    def run(self, path_list, sleep_time=1./20.):
+        for j0, j1 in zip(path_list[0], path_list[1]):
+            self.set_joints([j0, j1])
+            time.sleep(sleep_time)
 
     def plan(self, joint_list):
         '''
         Execute the planner and execute the planned path
         '''
-        res, path1, path2 = self.pb_ompl_interface.plan(joint_list[0], joint_list[1])#(goal0,goal1)
-
-        print('goal0', joint_list[0])
-        print('goal1', joint_list[1])
-        
-
-
-        # self.pb_ompl_interface.execute(path1, path2)
+        res, path1, path2 = self.pb_ompl_interface.plan(joint_list[0], joint_list[1])
         return res, [path1, path2]
 
 
