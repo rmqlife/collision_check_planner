@@ -35,15 +35,17 @@ def save_pose_to_json(arm1_pose, arm2_pose, filename='pose.json'):
         json.dump(data, f, indent=4)
 
 if __name__ == "__main__":
-    arm_1_position = [-0.6226, -0.03173, 0.1716]
-    arm_1_orientation = [0.92061594, 0.00544071, -0.00534512, 0.39039482]
+    # arm_1_position = [-0.6226, -0.03173, 0.1716]
+    # arm_1_orientation = [0.92061594, 0.00544071, -0.00534512, 0.39039482]
+    arm_1_position =  [ 0.3639 , -0.3796  , 0.08871]
+    arm_1_orientation = [0.14091401 ,0.92948374 ,0.33559535, 0.05982457]
     arm1_pose = arm_1_position + arm_1_orientation
 
     # Example transformation matrix (replace with actual computation if necessary)
     arm_transformation = np.array([
-        [0.996, 0.0683, -0.05744, 0.02818],
-        [-0.057, -0.00844, -0.9983, -0.3216],
-        [-0.06867, 0.9976, -0.004513, -0.3276],
+        [0.996, 0.00, -0.0, 0.0],
+        [0, -0, -0.9983, -0.4516],
+        [-0.0, 0.9976, -0, -0.3576],
         [0, 0, 0, 1]
     ])
     

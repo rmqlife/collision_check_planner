@@ -47,7 +47,7 @@ def circle_pose(center, toward,  radius, num_points):
         quat = vec_to_quat(unit_vector,  toward-points[i])
         points[i] =  list(points[i][:3]) + list(quat)
 
-    return np.array(points)
+    return points
 
 
 if __name__=="__main__":

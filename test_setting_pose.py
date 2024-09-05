@@ -15,9 +15,9 @@ def sync_from_real(planner, real_robots):
     return planner.set_joints([r.get_joints() for r in real_robots])
 
 def init_env(test_on_real_robot=False):
-    planner = MyObsPlanner(obj_path="plydoc/mesh22.obj", pose_path='pose.json', planner_name="RRTConnect")
-    planner.add_box([-0.6,0.2,0],[0.1,0.1,0.5])    
-    planner.add_box([0,0.2,-0.5],[0.7,0.7,0.1])      
+    planner = MyObsPlanner(obj_path="plydoc/output_mesh.obj", pose_path='pose.json', planner_name="RRTConnect")
+    # planner.add_box([-0.6,0.2,0],[0.1,0.1,0.5])    
+    # planner.add_box([0,0.2,-0.5],[0.7,0.7,0.1])      
     if test_on_real_robot:
         real_robots = init_real_robots()
         sync_from_real(planner, real_robots)
@@ -30,22 +30,17 @@ def init_env(test_on_real_robot=False):
 if __name__ == "__main__":
     
     planner, real_robots =init_env(test_on_real_robot=True)
-
-    poses = planner.get_poses()
-    init_joints = planner.get_joints()
-
-    print("environment pose")
-    for se3_pose in poses:
-        se3_pose.printline()
     
-    
-    poses[1] = deepcopy(poses[0])
-    poses[1].t[1] += 0.3
+    if False:
+        init_joints = planner.get_joints()
+        poses = planner.get_poses()
+        poses[0] = deepcopy(poses[1])
+        # poses[0].t[1] -= 0.6
+        planner.set_poses(poses, q_list=init_joints)
+        joints = planner.get_joints()
+        planner.set_joints(init_joints)
 
-    planner.set_poses(poses, q_list=init_joints)
-    joints = planner.get_joints()
-
-    planner.set_joints(init_joints)
+    joints = [joint_configs.get('facedown'), joint_configs.get('facedown2')]
     res, path_list = planner.plan(joints)
 
 

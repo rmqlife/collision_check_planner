@@ -58,7 +58,8 @@ class MyObsPlanner():
             self.robot.append(pb_ompl2.PbOMPLRobot(robot))
             p.resetBasePositionAndOrientation(robot, arm_poses[i][:3], arm_poses[i][3:])
             # reset myIK's position and orientation
-            self.robot_ik.append(base_pose_ik(arm_pose))
+            transform = pose_to_SE3(arm_pose)
+            self.robot_ik.append(MyIK_rotate(transform))
         
         # Setup pb_ompl
         self.pb_ompl_interface = pb_ompl2.PbOMPL2(self.robot[0], self.robot[1], self.obstacles)
@@ -158,24 +159,11 @@ class MyObsPlanner():
 
 
 if __name__ == "__main__":
-    # rospy.init_node('dual_arm_bullet')
-    planner = MyObsPlanner(obj_path="plydoc/mesh22.obj", pose_path='pose.json')
-    # planner.add_box([0,0,0],[0.2,0.2,0.2])    
+    rospy.init_node('dual_arm_bullet')
+    planner = MyObsPlanner(obj_path="plydoc/output_mesh.obj", pose_path='pose.json')
     joint_configs = MyConfig('/home/rmqlife/work/ur_slam/slam_data/joint_configs.json')
-    planner.set_joints([joint_configs.get('facedown'), joint_configs.get('facedown2')])
     
-    print("environment joints state", planner.get_joints())
-    print("environment pose")
-    poses = planner.get_poses()
-    for se3_pose in poses:
-        se3_pose.printline()
-        
-    # print(poses[1])
-    planner.set_poses(poses, q_list=planner.get_joints(), is_se3=True)
-    
-    input("break")
+    joints = [joint_configs.get('facedown'), joint_configs.get('facedown2')]
 
-    # path1, path2 = planner.path_planning(joints1, planner.arm2.get_joints())
-
-    # input("Press Enter to continue")
-    # planner.execute(path1, path2)
+    planner.set_joints(joints)
+    input("press any key to exit")

@@ -1,5 +1,7 @@
 from myObsPlanner import *
 from test_setting_pose import init_env,  joint_configs
+from copy import deepcopy
+
 test_on_real_robot = True
 
 if __name__ == "__main__":
@@ -8,9 +10,10 @@ if __name__ == "__main__":
     path_list = list()
     for i in [0,1]:
         init_pose = SE3_to_pose(planner.get_poses()[i])
-        target_pose = init_pose.copy()
+        target_pose = deepcopy(init_pose)
         target_pose[2] -= 0.3
         poses = circle_pose(init_pose, target_pose[:3], radius=0.1, num_points=50)
+        poses.append(init_pose)
         path = planner.robot_ik[i].plan_trajectory(poses, planner.get_joints()[i])
         
         # fixed 6th joint 

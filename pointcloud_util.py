@@ -84,7 +84,7 @@ class pointcloud:
         o3d.io.write_triangle_mesh(filename, mesh)
 
 if __name__ == "__main__":
-    mesh = trimesh.load('plydoc/mesh22.ply')
+    mesh = trimesh.load('plydoc/output_mesh1.ply')
 
     print("Original Vertices:")
     print(mesh.vertices)
@@ -93,8 +93,8 @@ if __name__ == "__main__":
     simplified_mesh = mesh.simplify_quadric_decimation(target_faces_count)
 
     # Export the cleaned mesh to an OBJ file
-    simplified_mesh.export('plydoc/mesh22.obj')
-    newmesh = trimesh.load('plydoc/mesh22.obj')
+    simplified_mesh.export('plydoc/output_mesh1.obj')
+    newmesh = trimesh.load('plydoc/output_mesh1.obj')
     print(newmesh.vertices)
     
 
