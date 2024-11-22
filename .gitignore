@@ -2,3 +2,6 @@ ompl/
 plydoc/
 .*/
 __pycache__/
+ur5/
+ur5e/
+install-ompl-ubuntu.sh

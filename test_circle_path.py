@@ -2,7 +2,7 @@ from myObsPlanner import *
 from test_setting_pose import init_env,  joint_configs
 from copy import deepcopy
 
-test_on_real_robot = True
+test_on_real_robot = False
 
 if __name__ == "__main__":
     planner, real_robots =init_env(test_on_real_robot)

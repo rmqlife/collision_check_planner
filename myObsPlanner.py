@@ -43,12 +43,14 @@ class MyObsPlanner():
 
         # PyBullet setup
         p.connect(p.GUI)
+        # p.connect(p.DIRECT)
+        
         p.setTimeStep(1. / 240.)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
 
         # Load robots
         # urdf_path = "ur5e/ur5e.urdf"
-        urdf_path = "ur5/urdf/ur5.urdf"
+        urdf_path = "/home/rmqlife/work/collision_check/ur5/urdf/ur5.urdf"
 
         # Robot 1
         self.robot = list()
@@ -71,6 +73,7 @@ class MyObsPlanner():
         self.real_robot = list()
         for ns in ['robot1', 'robot2']:
             self.real_robot.append(MyRobotNs(ns=ns))
+        self.p = p
         
     def get_joints(self):
         # output the joints of environment

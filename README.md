@@ -39,7 +39,19 @@ make -j 4 # Replace "4" with the number of cores on your machine
 export PYTHONPATH=/home/usr/Desktop/collision_check/ompl/py-bindings:$PYTHONPATH
 ```
 
+## Key Features
 
+### myObsPlanner.py
+- **Dual Arm Planning**: This script is designed to handle dual-arm robotic planning using PyBullet and OMPL.
+- **Pose Management**: It loads arm poses from a JSON file and manages them using inverse kinematics (IK) and forward kinematics (FK).
+- **Obstacle Handling**: Provides functionality to add and manage obstacles in the environment using mesh and box shapes.
+- **Path Execution**: Includes methods to execute planned paths and update joint configurations.
+
+### pb_ompl2.py
+- **OMPL Integration**: Integrates OMPL for motion planning, supporting various planners like RRT, PRM, and BITstar.
+- **State Space Management**: Manages a combined state space for two robots, allowing for complex multi-robot planning.
+- **Collision Detection**: Implements collision detection between robots and obstacles, as well as self-collision checks.
+- **Path Planning and Execution**: Provides methods to plan and execute paths in simulation, with support for multi-threaded execution.
 
 ## Reference
 - [OMPL GitHub Repository](https://github.com/ompl/ompl)

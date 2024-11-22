@@ -44,7 +44,7 @@ class PbOMPLRobot():
         joint_idx = [j for j in all_joint_idx if self._is_not_fixed(j)]
         self.num_dim = len(joint_idx)
         self.joint_idx = joint_idx
-        print("!!! self.joint idx: ", self.joint_idx)
+        # print("!!! self.joint idx: ", self.joint_idx)
         self.joint_bounds = []
 
         self.reset()
@@ -64,7 +64,7 @@ class PbOMPLRobot():
             high = joint_info[9] # high bounds
             if low < high:
                 self.joint_bounds.append([low, high])
-        print("Joint bounds: {}".format(self.joint_bounds))
+        # print("Joint bounds: {}".format(self.joint_bounds))
         return self.joint_bounds
 
     def get_cur_state(self):
@@ -203,6 +203,8 @@ class PbOMPL2():
             2. Check collisions
         '''
         # 分离机器人状态
+
+
         state1 = [state[i] for i in range(self.robot1.num_dim)]
         state2 = [state[i + self.robot1.num_dim] for i in range(self.robot2.num_dim)]
         
